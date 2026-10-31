@@ -4,190 +4,210 @@ These methods rely only on states, transitions, initial_state and
 final_states, so they work identically on DFA, NFA and GNFA.
 """
 
+from automata.fa.nfa import NFA
+
 
 class AnalyseMixin:
     """Mixin providing structural analysis algorithms for automata."""
 
-    def accessible_states(self):
-        """
-        Compute the set of states reachable from the initial state.
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
 
-        Parameters
+    def _destination_states(self, destination):
+        """
+        Return the set of states designated by a transition value.
+
+        The format of a transition value depends on the kind of automaton,
+        not on the kind of value: an NFA stores a set of states, a DFA
+        stores a single state. Testing the class (and not whether the value
+        is a set) matters, because the states of a DFA may themselves be
+        frozensets (this happens after a minimization).
+
+        Complexity
         ----------
-        None
+        O(size of the destination)
+        """
+        if isinstance(self, NFA):
+            return set(destination)
+        return {destination}
+
+    def _successors(self, state):
+        """
+        Return the set of states reachable from `state` in one transition.
+
+        Complexity
+        ----------
+        O(number of transitions leaving `state`)
+        """
+        successors = set()
+        for destination in self.transitions.get(state, {}).values():
+            successors |= self._destination_states(destination)
+        return successors
+
+    def _predecessors_map(self):
+        """
+        Build the reversed transition graph.
 
         Returns
         -------
-        set
-            Set of state names reachable from the initial state.
+        dict
+            For each state, the set of states having a transition to it.
 
         Complexity
         ----------
         O(|Q| + |E|)
+        """
+        reverse = {state: set() for state in self.states}
+        for state in self.states:
+            for target in self._successors(state):
+                reverse[target].add(state)
+        return reverse
 
-        References
+    def _forward_reachable(self, sources):
+        """
+        Depth-first search following transitions forward.
+
+        Returns the set of states reachable from any state of `sources`
+        (the sources themselves included).
+
+        Complexity
         ----------
-        Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
-        Languages, and Computation*.
+        O(|Q| + |E|)
         """
         visited = set()
-        stack = [self.initial_state]
+        stack = list(sources)
 
         while stack:
             state = stack.pop()
             if state in visited:
                 continue
             visited.add(state)
-
-            transitions_from_state = self.transitions.get(state, {})
-            for symbol, destination in transitions_from_state.items():
-                if isinstance(destination, (set, frozenset)):
-                    for next_state in destination:
-                        if next_state not in visited:
-                            stack.append(next_state)
-                else:
-                    if destination not in visited:
-                        stack.append(destination)
+            for next_state in self._successors(state):
+                if next_state not in visited:
+                    stack.append(next_state)
 
         return visited
 
-    def coaccessible_states(self):
+    def _backward_reachable(self, targets):
         """
-        Compute the set of states from which a final state is reachable.
+        Depth-first search following transitions backward.
 
-        Equivalent to computing accessible_states() on the reversed
-        automaton, starting from the final states instead of the
-        initial state.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        set
-            Set of state names from which at least one final state
-            can be reached.
+        Returns the set of states from which some state of `targets` can
+        be reached (the targets themselves included).
 
         Complexity
         ----------
         O(|Q| + |E|)
-
-        References
-        ----------
-        Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
-        Languages, and Computation*.
         """
-        # Build the reverse transition map: for each state, its predecessors.
-        reverse_transitions = {state: set() for state in self.states}
-        for state, paths in self.transitions.items():
-            for symbol, destination in paths.items():
-                targets = destination if isinstance(destination, (set, frozenset)) else {destination}
-                for target in targets:
-                    reverse_transitions[target].add(state)
-
+        reverse = self._predecessors_map()
         visited = set()
-        stack = list(self.final_states)
+        stack = list(targets)
 
         while stack:
             state = stack.pop()
             if state in visited:
                 continue
             visited.add(state)
-            for predecessor in reverse_transitions.get(state, set()):
+            for predecessor in reverse.get(state, set()):
                 if predecessor not in visited:
                     stack.append(predecessor)
 
         return visited
 
+    def _check_state(self, state):
+        """Raise ValueError if `state` does not belong to the automaton."""
+        if state not in self.states:
+            raise ValueError(f"unknown state: {state!r}")
 
-    def useful_states(self):
+    # ------------------------------------------------------------------
+    # Accessibility
+    # ------------------------------------------------------------------
+
+    def accessible_states(self):
         """
-        Compute the set of useful states (both accessible and coaccessible).
-
-        A state is useful if it lies on at least one accepted path:
-        reachable from the initial state AND able to reach a final state.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        set
-            Set of useful state names.
+        Compute the set of states reachable from the initial state.
 
         Complexity
         ----------
         O(|Q| + |E|)
-
-        References
-        ----------
-        Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
-        Languages, and Computation*.
         """
-        return self.accessible_states() & self.coaccessible_states()
-    def is_trim(self):
-        """
-        Test whether the automaton is trim (every state is useful).
+        return self._forward_reachable({self.initial_state})
 
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        bool
-            True if every state is both accessible and coaccessible.
-
-        Complexity
-        ----------
-        O(|Q| + |E|)
-
-        References
-        ----------
-        Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
-        Languages, and Computation*.
-        """
-        return self.useful_states() == set(self.states)
     def is_accessible_state(self, state):
         """
         Test whether a given state is accessible.
 
-        Parameters
+        Complexity
         ----------
-        state : str
-            The state to test.
+        O(|Q| + |E|)
+        """
+        return state in self.accessible_states()
 
-        Returns
-        -------
-        bool
-            True if the state is reachable from the initial state.
+    def coaccessible_states(self):
+        """
+        Compute the set of states from which a final state is reachable.
 
         Complexity
         ----------
         O(|Q| + |E|)
-
-        References
-        ----------
-        Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
-        Languages, and Computation*.
         """
-        return state in self.accessible_states()
+        return self._backward_reachable(self.final_states)
 
     def is_coaccessible_state(self, state):
         """
         Test whether a given state is coaccessible.
 
+        Complexity
+        ----------
+        O(|Q| + |E|)
+        """
+        return state in self.coaccessible_states()
+
+    def useful_states(self):
+        """
+        Compute the set of useful states (both accessible and coaccessible).
+
+        Complexity
+        ----------
+        O(|Q| + |E|)
+        """
+        return self.accessible_states() & self.coaccessible_states()
+
+    def is_trim(self):
+        """
+        Test whether the automaton is trim (every state is useful).
+
+        Complexity
+        ----------
+        O(|Q| + |E|)
+        """
+        return self.useful_states() == set(self.states)
+
+    # ------------------------------------------------------------------
+    # Reachability from / to a given state
+    # ------------------------------------------------------------------
+
+    def reachable_states_from(self, state):
+        """
+        Compute the states reachable from a given state.
+
+        The state itself is included (path of length 0).
+
         Parameters
         ----------
         state : str
-            The state to test.
+            The starting state.
 
         Returns
         -------
-        bool
-            True if a final state can be reached from this state.
+        set
+            States reachable from `state`.
+
+        Raises
+        ------
+        ValueError
+            If `state` is not a state of the automaton.
 
         Complexity
         ----------
@@ -198,4 +218,91 @@ class AnalyseMixin:
         Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
         Languages, and Computation*.
         """
-        return state in self.coaccessible_states()
+        self._check_state(state)
+        return self._forward_reachable({state})
+
+    def predecessors(self, state):
+        """
+        Compute the direct predecessors of a state.
+
+        These are the states having at least one transition leading
+        directly to `state` (a self-loop makes a state its own
+        predecessor).
+
+        Parameters
+        ----------
+        state : str
+            The target state.
+
+        Returns
+        -------
+        set
+            States with a transition to `state`.
+
+        Raises
+        ------
+        ValueError
+            If `state` is not a state of the automaton.
+
+        Complexity
+        ----------
+        O(|Q| + |E|)
+        """
+        self._check_state(state)
+        return self._predecessors_map()[state]
+
+    def states_reaching(self, state):
+        """
+        Compute all the states from which a given state can be reached.
+
+        This is a backward traversal of the transitions. The state itself
+        is included (path of length 0).
+
+        Parameters
+        ----------
+        state : str
+            The target state.
+
+        Returns
+        -------
+        set
+            States from which `state` is reachable.
+
+        Raises
+        ------
+        ValueError
+            If `state` is not a state of the automaton.
+
+        Complexity
+        ----------
+        O(|Q| + |E|)
+        """
+        self._check_state(state)
+        return self._backward_reachable({state})
+
+    # ------------------------------------------------------------------
+    # Emptiness
+    # ------------------------------------------------------------------
+
+    def is_empty(self):
+        """
+        Decide whether the language of the automaton is empty.
+
+        The language is empty if and only if no accepting state is
+        accessible from the initial state.
+
+        Returns
+        -------
+        bool
+            True if the recognized language is empty.
+
+        Complexity
+        ----------
+        O(|Q| + |E|)
+
+        References
+        ----------
+        Hopcroft, Motwani & Ullman, *Introduction to Automata Theory,
+        Languages, and Computation*.
+        """
+        return not (self.accessible_states() & set(self.final_states))

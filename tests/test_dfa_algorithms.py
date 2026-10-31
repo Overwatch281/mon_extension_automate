@@ -233,3 +233,197 @@ def test_is_coaccessible_state():
     )
     assert dfa.is_coaccessible_state('q2') is True
     assert dfa.is_coaccessible_state('q1') is False
+
+
+def test_strongly_connected_components_finds_cycle():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2', 'q3'},
+        input_symbols={'a', 'b'},
+        transitions={
+            'q0': {'a': 'q1', 'b': 'q0'},
+            'q1': {'a': 'q2', 'b': 'q1'},
+            'q2': {'a': 'q1', 'b': 'q2'},  # q1 <-> q2 : cycle
+            'q3': {'a': 'q3', 'b': 'q3'},  # isolé
+        },
+        initial_state='q0',
+        final_states={'q2'},
+    )
+    sccs = dfa.strongly_connected_components()
+    assert frozenset({'q1', 'q2'}) in sccs
+    assert frozenset({'q0'}) in sccs
+    assert frozenset({'q3'}) in sccs
+    assert len(sccs) == 3
+
+
+def test_strongly_connected_components_no_cycle():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2'},
+        input_symbols={'a'},
+        transitions={
+            'q0': {'a': 'q1'},
+            'q1': {'a': 'q2'},
+            'q2': {'a': 'q2'},  # q2 boucle sur lui-même : SCC triviale
+        },
+        initial_state='q0',
+        final_states={'q2'},
+        allow_partial=True,
+    )
+    sccs = dfa.strongly_connected_components()
+    # Chaque état forme sa propre composante (aucun cycle non trivial)
+    assert set(sccs) == {frozenset({'q0'}), frozenset({'q1'}), frozenset({'q2'})}
+
+
+
+def test_has_cycle_with_self_loop():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1'},
+        input_symbols={'a'},
+        transitions={'q0': {'a': 'q1'}, 'q1': {'a': 'q1'}},
+        initial_state='q0',
+        final_states={'q1'},
+    )
+    assert dfa.has_cycle() is True
+
+
+def test_has_cycle_false_on_acyclic_automaton():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2'},
+        input_symbols={'a', 'b'},
+        transitions={
+            'q0': {'a': 'q1'},
+            'q1': {'b': 'q2'},
+            'q2': {},
+        },
+        initial_state='q0',
+        final_states={'q2'},
+        allow_partial=True,
+    )
+    assert dfa.has_cycle() is False
+
+
+def test_has_cycle_from_only_looks_at_reachable_part():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2', 'q3'},
+        input_symbols={'a'},
+        transitions={
+            'q0': {'a': 'q1'},
+            'q1': {'a': 'q2'},
+            'q2': {},
+            'q3': {'a': 'q3'},  # boucle, mais inaccessible depuis q0
+        },
+        initial_state='q0',
+        final_states={'q2'},
+        allow_partial=True,
+    )
+    assert dfa.has_cycle_from('q0') is False
+    assert dfa.has_cycle_from('q3') is True
+    assert dfa.has_cycle() is True
+
+
+def test_has_cycle_from_reaches_cycle_not_through_start():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2'},
+        input_symbols={'a', 'b'},
+        transitions={
+            'q0': {'a': 'q1'},
+            'q1': {'a': 'q2', 'b': 'q1'},
+            'q2': {'a': 'q1'},  # cycle q1 <-> q2, atteint depuis q0
+        },
+        initial_state='q0',
+        final_states={'q2'},
+        allow_partial=True,
+    )
+    assert dfa.has_cycle_from('q0') is True
+
+
+
+def test_is_empty_true_without_final_state():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1'},
+        input_symbols={'a'},
+        transitions={'q0': {'a': 'q1'}, 'q1': {'a': 'q1'}},
+        initial_state='q0',
+        final_states=set(),
+    )
+    assert dfa.is_empty() is True
+
+
+def test_is_empty_true_when_final_state_unreachable():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1'},
+        input_symbols={'a'},
+        transitions={'q0': {'a': 'q0'}, 'q1': {'a': 'q1'}},
+        initial_state='q0',
+        final_states={'q1'},  # final mais inaccessible
+    )
+    assert dfa.is_empty() is True
+
+
+def test_is_empty_false_when_initial_state_is_final():
+    dfa = ExtendedDFA(
+        states={'q0'},
+        input_symbols={'a'},
+        transitions={'q0': {'a': 'q0'}},
+        initial_state='q0',
+        final_states={'q0'},
+    )
+    assert dfa.is_empty() is False
+
+
+def test_is_finite_true_for_acyclic_automaton():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2'},
+        input_symbols={'a', 'b'},
+        transitions={
+            'q0': {'a': 'q1'},
+            'q1': {'b': 'q2'},
+            'q2': {},
+        },
+        initial_state='q0',
+        final_states={'q2'},
+        allow_partial=True,
+    )
+    # Langage = {"ab"}
+    assert dfa.is_finite() is True
+    assert dfa.is_infinite() is False
+
+
+def test_is_finite_ignores_cycle_on_useless_state():
+    dfa = ExtendedDFA(
+        states={'q0', 'q1', 'q2'},
+        input_symbols={'a'},
+        transitions={
+            'q0': {'a': 'q1'},
+            'q1': {'a': 'q2'},
+            'q2': {'a': 'q2'},  # cycle sur un puits non coaccessible
+        },
+        initial_state='q0',
+        final_states={'q1'},
+    )
+    # Langage = {"a"} : fini, malgré le cycle sur q2
+    assert dfa.has_cycle() is True
+    assert dfa.is_finite() is True
+
+
+def test_is_finite_false_with_useful_cycle():
+    dfa = ExtendedDFA(
+        states={'q0'},
+        input_symbols={'a'},
+        transitions={'q0': {'a': 'q0'}},
+        initial_state='q0',
+        final_states={'q0'},
+    )
+    # Langage = a* : infini
+    assert dfa.is_finite() is False
+    assert dfa.is_infinite() is True
+
+
+def test_is_finite_true_for_empty_language():
+    dfa = ExtendedDFA(
+        states={'q0'},
+        input_symbols={'a'},
+        transitions={'q0': {'a': 'q0'}},
+        initial_state='q0',
+        final_states=set(),
+    )
+    assert dfa.is_finite() is True
