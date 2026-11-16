@@ -2,12 +2,14 @@
 
 from automata.fa.fa import FA
 
+from automata_extensions.fa.mixins.algebra import AlgebraMixin
 from automata_extensions.fa.mixins.analyse import AnalyseMixin
 from automata_extensions.fa.mixins.automaton_conversions import AutomatonConversionMixin
 from automata_extensions.fa.mixins.conversions import ConversionMixin
 from automata_extensions.fa.mixins.cycles import CyclesMixin
 from automata_extensions.fa.mixins.determinisation import DeterminisationMixin
 from automata_extensions.fa.mixins.export import ExportMixin
+from automata_extensions.fa.mixins.grammaire import GrammaireMixin
 from automata_extensions.fa.mixins.language_operations import LanguageOperationsMixin
 from automata_extensions.fa.mixins.languages import LanguageMixin
 from automata_extensions.fa.mixins.minimisation import MinimisationMixin
@@ -16,6 +18,7 @@ from automata_extensions.fa.mixins.products import ProductMixin
 from automata_extensions.fa.mixins.quotients import QuotientMixin
 from automata_extensions.fa.mixins.regex_conversions import RegexConversionMixin
 from automata_extensions.fa.mixins.relations import RelationsMixin
+from automata_extensions.fa.mixins.residuals import ResidualMixin
 from automata_extensions.fa.mixins.simulation import SimulationMixin
 from automata_extensions.fa.mixins.transformations import TransformationMixin
 from automata_extensions.fa.mixins.traversals import TraversalMixin
@@ -23,12 +26,14 @@ from automata_extensions.fa.mixins.visualisation import VisualisationMixin
 
 
 class ExtendedFA(
+    AlgebraMixin,
     AnalyseMixin,
     AutomatonConversionMixin,
     ConversionMixin,
     CyclesMixin,
     DeterminisationMixin,
     ExportMixin,
+    GrammaireMixin,
     LanguageMixin,
     LanguageOperationsMixin,
     MinimisationMixin,
@@ -37,6 +42,7 @@ class ExtendedFA(
     QuotientMixin,
     RegexConversionMixin,
     RelationsMixin,
+    ResidualMixin,
     SimulationMixin,
     TransformationMixin,
     TraversalMixin,

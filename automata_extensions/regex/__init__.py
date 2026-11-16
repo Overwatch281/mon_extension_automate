@@ -1,3 +1,4 @@
+from automata_extensions.regex.equations import EquationSystem, arden
 from automata_extensions.regex.parser import parse_regex
 from automata_extensions.regex.regex import (
     Concat,
@@ -18,4 +19,5 @@ from automata_extensions.regex.regex import (
 __all__ = [
     "Regex", "Empty", "Epsilon", "Symbol", "Union", "Concat", "Star",
     "empty", "epsilon", "symbol", "union", "concat", "star", "parse_regex",
+    "arden", "EquationSystem",
 ]
