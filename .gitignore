@@ -1,4 +1,14 @@
+# Environnement virtuel et IDE
 .env/
+.venv/
 .idea/
+
+# Python
 __pycache__/
 *.pyc
+*.egg-info/
+build/
+dist/
+
+# Tests
+.pytest_cache/

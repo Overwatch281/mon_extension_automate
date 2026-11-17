@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automata-extensions"
+version = "0.1.0"
+description = "Extensions pédagogiques de la bibliothèque automata-lib : algorithmes sur les automates, expressions régulières et grammaires."
+requires-python = ">=3.10"
+dependencies = ["automata-lib==9.2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["automata_extensions*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Couldn't find ffmpeg or avconv:RuntimeWarning",
+]
