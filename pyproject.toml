@@ -6,7 +6,17 @@ build-backend = "setuptools.build_meta"
 name = "automata-extensions"
 version = "0.1.0"
 description = "Extensions pédagogiques de la bibliothèque automata-lib : algorithmes sur les automates, expressions régulières et grammaires."
+readme = "README.md"
 requires-python = ">=3.10"
+
+authors = [
+    { name = "KOLIE NEMA VICTOR", email = "kolienemavictor012@gmail.com" }
+]
+
+maintainers = [
+    { name = "KOLIE NEMA VICTOR", email = "kolienemavictor012@gmail.com" }
+]
+
 dependencies = ["automata-lib==9.2.0"]
 
 [project.optional-dependencies]
